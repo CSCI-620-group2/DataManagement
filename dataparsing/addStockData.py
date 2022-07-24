@@ -4,6 +4,9 @@ from datetime import datetime
 
 def parseRow(row,colNames,mycursor):
     ep = 0
+    colName_insert = []
+    colVal_insert = []
+    duplicate_insert = []
     for idx, col in enumerate(row):
         
         if idx == 0:
@@ -12,11 +15,16 @@ def parseRow(row,colNames,mycursor):
         if ((idx - 1) % 5) != 0:
             continue
         colIndex = int((idx - 1) / 5)
-
         ColName = colNames[colIndex]
+        
         if(ep > 0 and len(ColName) > 0 and len(col) > 0):
-            sqlstring = f"INSERT INTO stockprice (epochtime, {ColName}) VALUES ({ep},{col}) ON DUPLICATE KEY UPDATE {ColName}={col};"
-            mycursor.execute("" + sqlstring)
+            colName_insert.append(ColName)
+            colVal_insert.append(col)
+            duplicate_insert.append(f"{ColName}=VALUES({ColName})")
+
+    if(ep > 0):   
+        sqlstring = f"INSERT INTO stockprice (epochtime, {','.join(colName_insert)}) VALUES ({ep},{','.join(colVal_insert)}) ON DUPLICATE KEY UPDATE {','.join(duplicate_insert)};"
+        mycursor.execute("" + sqlstring)
 
 mydb = mysql.connector.connect(
     host="localhost",
@@ -36,15 +44,16 @@ with open('./csvfiles/dataset.csv', mode='r') as csv_file:
     for idx, row in enumerate(csv_reader):
         if rowCount == 0:
             for col in row:
-                if(col != None and len(col) > 0 and col not in colNames ):
-                    colNames.append(col.replace(".","").replace("ALL","ALLSTATE").replace("KEY","KEYBANK"))
+                newCol = col.replace(".","").replace("ALL","ALLSTATE").replace("KEY","KEYBANK")
+                if(newCol != None and len(newCol) > 0 and newCol not in colNames ):
+                    colNames.append(newCol)
             rowCount += 1
             continue
         if rowCount < 3:
             rowCount += 1
             continue
         parseRow(row,colNames,mycursor)
-        if (idx % 10 == 0):
+        if (idx % 1000 == 0):
             print(idx)
     
 mycursor.close()
